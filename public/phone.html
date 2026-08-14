@@ -80,9 +80,11 @@
         const debug = document.getElementById('debug');
         const testBtn = document.getElementById('test-sound');
 
-        // Notas del acorde Dm11 con sus números MIDI reales
-        const dm11Notes = [50, 53, 57, 60, 62, 65, 69, 72, 79];
-        const assignedMidiNote = dm11Notes[Math.floor(Math.random() * dm11Notes.length)];
+        // Notas del acorde Dm11 acotadas estrictamente entre A1 (33) y D4 (62)
+        // Incluye notas reales del acorde Dm11 (D, F, A, C, G) en ese rango:
+        // A1(33), C2(36), D2(38), F2(41), G2(43), A2(45), C3(48), D3(50), F3(53), G3(55), A3(57), C4(60), D4(62)
+        const dm11NotesA1ToD4 = [33, 36, 38, 41, 43, 45, 48, 50, 53, 55, 57, 60, 62];
+        const assignedMidiNote = dm11NotesA1ToD4[Math.floor(Math.random() * dm11NotesA1ToD4.length)];
 
         function midiToNoteName(midiNumber) {
             const notes = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
@@ -106,7 +108,6 @@
             }
         }
 
-        // 1. Activar motor de audio con el botón rojo
         document.getElementById('start').addEventListener('click', async () => {
             await Tone.start();
             
@@ -136,12 +137,10 @@
             playAssignedNote();
         });
 
-        // 2. Recepción universal compatible con Blobs y textos de red
         ws.onmessage = async (event) => {
             try {
                 let incomingNote = null;
 
-                // Manejo seguro por si event.data llega como Blob o texto plano
                 if (event.data instanceof Blob) {
                     incomingNote = await event.data.text();
                 } else {
@@ -153,7 +152,6 @@
                 debug.innerText = `Último MIDI recibido: ${incomingNote}`;
 
                 if (audioInitialized && incomingNote !== "") {
-                    // Compara la nota recibida con la nota asignada a este teléfono
                     if (Number(incomingNote) === Number(assignedMidiNote)) {
                         playAssignedNote();
                     } else {
