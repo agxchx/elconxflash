@@ -80,7 +80,7 @@
         const debug = document.getElementById('debug');
         const testBtn = document.getElementById('test-sound');
 
-        // Notas del acorde Dm11
+        // Notas del acorde Dm11 con sus números MIDI reales
         const dm11Notes = [50, 53, 57, 60, 62, 65, 69, 72, 79];
         const assignedMidiNote = dm11Notes[Math.floor(Math.random() * dm11Notes.length)];
 
@@ -106,7 +106,7 @@
             }
         }
 
-        // 1. Activar motor de audio
+        // 1. Activar motor de audio con el botón rojo
         document.getElementById('start').addEventListener('click', async () => {
             await Tone.start();
             
@@ -136,30 +136,32 @@
             playAssignedNote();
         });
 
-        // 2. Recepción con depuración en pantalla
+        // 2. Recepción ultrasegura de la nota MIDI
         ws.onmessage = (event) => {
             try {
-                let data = event.data;
-                
-                if (typeof data === 'string') {
-                    try {
-                        data = JSON.parse(data);
-                    } catch (e) {}
-                }
-
-                // Intentamos extraer el número de nota de cualquier estructura posible
+                let rawData = event.data;
                 let incomingNote = null;
-                if (typeof data === 'object' && data !== null) {
-                    incomingNote = data.note !== undefined ? data.note : (data.detail ? data.detail.note : null);
+
+                if (typeof rawData === 'string') {
+                    try {
+                        const parsed = JSON.parse(rawData);
+                        incomingNote = parsed.note !== undefined ? parsed.note : parsed;
+                    } catch (e) {
+                        incomingNote = rawData;
+                    }
                 } else {
-                    incomingNote = data;
+                    incomingNote = rawData;
                 }
 
-                debug.innerText = `Último MIDI recibido: ${incomingNote !== null ? incomingNote : JSON.stringify(data)}`;
+                if (typeof incomingNote === 'object' && incomingNote !== null) {
+                    incomingNote = incomingNote.note || incomingNote.detail || null;
+                }
+
+                debug.innerText = `Último MIDI recibido: ${incomingNote !== null ? incomingNote : 'Ninguno'}`;
 
                 if (audioInitialized && incomingNote !== null) {
-                    // Comparamos de forma flexible
-                    if (String(incomingNote).trim() === String(assignedMidiNote).trim()) {
+                    // Compara si la nota que llegó coincide exactamente con la nota asignada a este teléfono
+                    if (Number(incomingNote) === Number(assignedMidiNote)) {
                         playAssignedNote();
                     }
                 }
