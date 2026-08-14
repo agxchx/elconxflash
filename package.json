@@ -1,5 +1,5 @@
 {
-  "name": "midi-flash-web",
+  "name": "elconxflash",
   "version": "1.0.0",
   "main": "server.js",
   "scripts": {
