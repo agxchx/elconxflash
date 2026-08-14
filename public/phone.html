@@ -29,19 +29,15 @@
             cursor: pointer;
             font-weight: bold;
             box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.3);
-            transition: transform 0.1s ease;
-        }
-        button:active {
-            transform: scale(0.95);
         }
         #info {
             margin-top: 25px;
-            font-size: 24px;
+            font-size: 28px;
             color: #38bdf8;
             font-weight: bold;
         }
         #log {
-            margin-top: 10px;
+            margin-top: 15px;
             font-size: 16px;
             color: #94a3b8;
         }
@@ -52,8 +48,8 @@
     <div>
         <h2>Orquesta Web Dm11</h2>
         <button id="start">Unirse a la Orquesta</button>
-        <div id="info">Nota asignada: ?</div>
-        <p id="log">Toca el botón para activar tu dispositivo...</p>
+        <div id="info">Nota: ?</div>
+        <p id="log">Toca el botón para activar el audio...</p>
     </div>
 
     <script>
@@ -62,11 +58,8 @@
         const log = document.getElementById('log');
         const info = document.getElementById('info');
 
-        // Notas MIDI seleccionadas específicamente para Dm11 (Re, Fa, La, Do, Sol en varias octavas)
-        // Dm7(11) = D - F - A - C - G
-        const dm11Notes = [50, 53, 57, 60, 67, 62, 65, 69, 72, 79]; // D3 hasta G5
-
-        // Seleccionamos una nota al azar para ESTE teléfono al abrir la página
+        // Notas del acorde Dm11 (D, F, A, C, G)
+        const dm11Notes = [50, 53, 57, 60, 67, 62, 65, 69, 72, 79];
         const randomMidiNote = dm11Notes[Math.floor(Math.random() * dm11Notes.length)];
 
         function midiToNoteName(midiNumber) {
@@ -76,35 +69,32 @@
         }
 
         const assignedNoteString = midiToNoteName(randomMidiNote);
-        info.innerText = `Nota asignada: ${assignedNoteString}`;
+        info.innerText = `Tu Nota: ${assignedNoteString}`;
 
-        // Sintetizador estilo marimba/pluck cálido
         const synth = new Tone.Synth({
             oscillator: { type: "sine" },
-            envelope: {
-                attack: 0.005,
-                decay: 0.4,
-                sustain: 0.0,
-                release: 0.3
-            }
+            envelope: { attack: 0.005, decay: 0.4, sustain: 0, release: 0.3 }
         }).toDestination();
 
-        // Activación de audio por interacción táctil requerida por iOS/Android
         document.getElementById('start').addEventListener('click', async () => {
             await Tone.start();
-            log.innerText = "¡Conectado a la orquesta! Esperando señal...";
+            log.innerText = "¡Audio activado! Esperando notas...";
             document.getElementById('start').style.display = 'none';
         });
 
         ws.onmessage = (event) => {
-            const data = JSON.parse(event.data);
-            if (data.type === 'flash') {
-                // Cuando llega la señal de la PC, este teléfono toca SU nota asignada al instante
-                synth.triggerAttackRelease(assignedNoteString, "4n");
-                log.innerText = `¡Sonando ${assignedNoteString}!`;
-                setTimeout(() => {
-                    log.innerText = "Listo para el siguiente golpe";
-                }, 300);
+            try {
+                const data = JSON.parse(event.data);
+                // Si llega cualquier mensaje válido del controlador
+                if (data.note) {
+                    synth.triggerAttackRelease(assignedNoteString, "4n");
+                    log.innerText = `¡Tocando ${assignedNoteString}! (MIDI ${data.note})`;
+                    setTimeout(() => {
+                        log.innerText = "Esperando notas...";
+                    }, 300);
+                }
+            } catch (e) {
+                console.error("Error leyendo mensaje:", e);
             }
         };
     </script>
