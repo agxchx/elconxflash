@@ -74,10 +74,7 @@
         const testBtn = document.getElementById('test-sound');
 
         // Notas del acorde Dm11 (D, F, A, C, G) con sus números MIDI reales
-        // 50 (D3), 53 (F3), 57 (A3), 60 (C4), 62 (D4), 65 (F4), 69 (A4), 72 (C5), 79 (G5)
         const dm11Notes = [50, 53, 57, 60, 62, 65, 69, 72, 79];
-        
-        // Seleccionamos un número MIDI aleatorio fijo para ESTE teléfono
         const assignedMidiNote = dm11Notes[Math.floor(Math.random() * dm11Notes.length)];
 
         function midiToNoteName(midiNumber) {
@@ -132,23 +129,34 @@
             playAssignedNote();
         });
 
-        // 2. Recepción inteligente: Solo suena si la nota del controlador coincide con la asignada
+        // 2. Recepción segura sin errores de JSON
         ws.onmessage = (event) => {
             try {
-                const data = JSON.parse(event.data);
+                let data = event.data;
                 
-                if (audioInitialized && data.note) {
-                    // Comparamos el número MIDI recibido con el número MIDI asignado a este teléfono
-                    if (Number(data.note) === Number(assignedMidiNote)) {
+                // Si es texto JSON, lo parseamos; si ya es un objeto, lo usamos directamente
+                if (typeof data === 'string') {
+                    try {
+                        data = JSON.parse(data);
+                    } catch (e) {
+                        // Si no es JSON válido, ignoramos el error y tratamos de leerlo como texto crudo
+                    }
+                }
+
+                // Extraemos la nota independientemente de cómo venga estructurado el objeto
+                const incomingNote = data.note || data;
+
+                if (audioInitialized && incomingNote) {
+                    if (Number(incomingNote) === Number(assignedMidiNote)) {
                         playAssignedNote();
                     } else {
-                        log.innerText = `Recibido MIDI ${data.note} (No es tu nota)`;
+                        log.innerText = `Recibido MIDI ${incomingNote} (No es tu nota)`;
                     }
-                } else if (!audioInitialized && data.note) {
+                } else if (!audioInitialized && incomingNote) {
                     log.innerText = "⚠️ ¡Llegó señal, pero falta activar el botón rojo!";
                 }
-            } catch (e) {
-                console.error("Error al procesar mensaje:", e);
+            } catch (err) {
+                console.error("Error al procesar mensaje de red:", err);
             }
         };
     </script>
