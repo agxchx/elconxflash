@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Orquesta Dm11 - Teléfono</title>
+    <!-- Cargamos Tone.js -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
     <style>
         body {
@@ -66,7 +67,7 @@
         
         <div id="info">Nota: ?</div>
         
-        <!-- Nuevo botón de prueba manual de sonido -->
+        <!-- Botón de prueba manual de sonido -->
         <button id="test-sound" class="btn-test">🎵 Tocar mi nota de prueba</button>
         
         <p id="log">Esperando activación de audio...</p>
@@ -79,7 +80,7 @@
         const info = document.getElementById('info');
         const testBtn = document.getElementById('test-sound');
 
-        // Notas de Dm11 (D, F, A, C, G)
+        // Notas del acorde Dm11 (D, F, A, C, G)
         const dm11Notes = [50, 53, 57, 60, 67, 62, 65, 69, 72, 79];
         const randomMidiNote = dm11Notes[Math.floor(Math.random() * dm11Notes.length)];
 
@@ -100,12 +101,12 @@
                 synth.triggerAttackRelease(assignedNoteString, "4n");
                 log.innerText = `¡Sonando nota ${assignedNoteString}!`;
                 setTimeout(() => {
-                    log.innerText = "Conectado. ¡Listo para recibir MIDI!";
+                    log.innerText = "Conectado. ¡Listo para recibir señal MIDI!";
                 }, 400);
             }
         }
 
-        // 1. Activar motor de audio
+        // 1. Activar motor de audio con el botón rojo
         document.getElementById('start').addEventListener('click', async () => {
             await Tone.start();
             
@@ -126,10 +127,10 @@
             btn.innerText = "¡AUDIO ACTIVO!";
             btn.disabled = true;
             
-            testBtn.style.display = "inline-block"; // Mostrar el botón de prueba
-            log.innerText = "Audio desbloqueado. ¡Prueba el botón azul o tu MIDI!";
+            testBtn.style.display = "inline-block"; // Mostrar el botón de prueba azul
+            log.innerText = "Audio desbloqueado. ¡Prueba el botón azul o tu controlador MIDI!";
             
-            playAssignedNote(); // Suena un toque inicial de confirmación
+            playAssignedNote(); // Toque inicial de confirmación
         });
 
         // 2. Botón de prueba manual en pantalla
@@ -141,7 +142,9 @@
         ws.onmessage = (event) => {
             try {
                 const data = JSON.parse(event.data);
-                if (data.note) {
+                console.log("Mensaje recibido:", data);
+                
+                if (data.note || data.type === 'play' || data.type === 'flash') {
                     if (audioInitialized) {
                         playAssignedNote();
                     } else {
@@ -149,7 +152,7 @@
                     }
                 }
             } catch (e) {
-                console.error("Error:", e);
+                console.error("Error al procesar mensaje:", e);
             }
         };
     </script>
