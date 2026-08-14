@@ -45,9 +45,14 @@
         }
         #info {
             margin-top: 20px;
-            font-size: 30px;
+            font-size: 28px;
             color: #38bdf8;
             font-weight: bold;
+        }
+        #debug {
+            margin-top: 10px;
+            font-size: 18px;
+            color: #fbbf24;
         }
         #log {
             margin-top: 15px;
@@ -61,7 +66,8 @@
     <div>
         <h2>Orquesta Web Dm11</h2>
         <button id="start" class="btn-main">1. TOCA AQUÍ PARA ACTIVAR</button>
-        <div id="info">Nota: ?</div>
+        <div id="info">Nota asignada: ?</div>
+        <div id="debug">Último MIDI recibido: Ninguno</div>
         <button id="test-sound" class="btn-test">🎵 Tocar mi nota de prueba</button>
         <p id="log">Esperando activación de audio...</p>
     </div>
@@ -71,9 +77,10 @@
         const ws = new WebSocket(`${protocol}//${window.location.host}`);
         const log = document.getElementById('log');
         const info = document.getElementById('info');
+        const debug = document.getElementById('debug');
         const testBtn = document.getElementById('test-sound');
 
-        // Notas del acorde Dm11 (D, F, A, C, G) con sus números MIDI reales
+        // Notas del acorde Dm11
         const dm11Notes = [50, 53, 57, 60, 62, 65, 69, 72, 79];
         const assignedMidiNote = dm11Notes[Math.floor(Math.random() * dm11Notes.length)];
 
@@ -99,7 +106,7 @@
             }
         }
 
-        // 1. Activar motor de audio con el botón rojo
+        // 1. Activar motor de audio
         document.getElementById('start').addEventListener('click', async () => {
             await Tone.start();
             
@@ -129,34 +136,35 @@
             playAssignedNote();
         });
 
-        // 2. Recepción segura sin errores de JSON
+        // 2. Recepción con depuración en pantalla
         ws.onmessage = (event) => {
             try {
                 let data = event.data;
                 
-                // Si es texto JSON, lo parseamos; si ya es un objeto, lo usamos directamente
                 if (typeof data === 'string') {
                     try {
                         data = JSON.parse(data);
-                    } catch (e) {
-                        // Si no es JSON válido, ignoramos el error y tratamos de leerlo como texto crudo
-                    }
+                    } catch (e) {}
                 }
 
-                // Extraemos la nota independientemente de cómo venga estructurado el objeto
-                const incomingNote = data.note || data;
+                // Intentamos extraer el número de nota de cualquier estructura posible
+                let incomingNote = null;
+                if (typeof data === 'object' && data !== null) {
+                    incomingNote = data.note !== undefined ? data.note : (data.detail ? data.detail.note : null);
+                } else {
+                    incomingNote = data;
+                }
 
-                if (audioInitialized && incomingNote) {
-                    if (Number(incomingNote) === Number(assignedMidiNote)) {
+                debug.innerText = `Último MIDI recibido: ${incomingNote !== null ? incomingNote : JSON.stringify(data)}`;
+
+                if (audioInitialized && incomingNote !== null) {
+                    // Comparamos de forma flexible
+                    if (String(incomingNote).trim() === String(assignedMidiNote).trim()) {
                         playAssignedNote();
-                    } else {
-                        log.innerText = `Recibido MIDI ${incomingNote} (No es tu nota)`;
                     }
-                } else if (!audioInitialized && incomingNote) {
-                    log.innerText = "⚠️ ¡Llegó señal, pero falta activar el botón rojo!";
                 }
             } catch (err) {
-                console.error("Error al procesar mensaje de red:", err);
+                console.error("Error al procesar mensaje:", err);
             }
         };
     </script>
