@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Receptor Flash</title>
+</head>
+<body>
+    <h2>Receptor de Flash</h2>
+    <button id="start" style="padding: 15px; font-size: 16px;">1. Activar Permisos de Cámara</button>
+    <p id="log" style="margin-top: 20px; font-size: 18px;">Esperando señal...</p>
+
+    <script>
+        let track = null;
+        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        const ws = new WebSocket(`${protocol}//${window.location.host}`);
+
+        document.getElementById('start').addEventListener('click', async () => {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({
+                    video: { facingMode: 'environment' }
+                });
+                track = stream.getVideoTracks()[0];
+                
+                const capabilities = track.getCapabilities();
+                if (!capabilities.torch) {
+                    alert('El flash no es compatible con este dispositivo.');
+                    return;
+                }
+                document.getElementById('log').innerText = "¡Listo! Escuchando señales MIDI...";
+                document.getElementById('start').style.display = 'none';
+            } catch (err) {
+                console.error(err);
+                document.getElementById('log').innerText = "Error de permisos: " + err;
+            }
+        });
+
+        ws.onmessage = async (event) => {
+            const data = JSON.parse(event.data);
+            if (data.type === 'flash' && track) {
+                try {
+                    await track.applyConstraints({ advanced: [{ torch: true }] });
+                    document.getElementById('log').innerText = `¡Flash encendido (Nota: ${data.note})!`;
+                    
+                    setTimeout(async () => {
+                        await track.applyConstraints({ advanced: [{ torch: false }] });
+                    }, 150); // El flash dura encendido 150 milisegundos
+                } catch (err) {
+                    console.error("Error al disparar el flash:", err);
+                }
+            }
+        };
+    </script>
+</body>
+</html>

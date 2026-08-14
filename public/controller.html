@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>MIDI Controller</title>
+</head>
+<body>
+    <h2>Controlador MIDI a Flash</h2>
+    <p id="status">Conectando a MIDI...</p>
+
+    <script>
+        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        const ws = new WebSocket(`${protocol}//${window.location.host}`);
+
+        ws.onopen = () => console.log("Conectado al servidor WebSocket");
+
+        if (navigator.requestMIDIAccess) {
+            navigator.requestMIDIAccess().then(onMIDISuccess, onMIDIFailure);
+        } else {
+            document.getElementById('status').innerText = "Web MIDI no soportado en este navegador.";
+        }
+
+        function onMIDISuccess(midiAccess) {
+            document.getElementById('status').innerText = "MIDI Listo. Presiona una tecla.";
+            for (let input of midiAccess.inputs.values()) {
+                input.onmidimessage = getMIDIMessage;
+            }
+        }
+
+        function onMIDIFailure() {
+            document.getElementById('status').innerText = "No se pudo acceder a los dispositivos MIDI.";
+        }
+
+        function getMIDIMessage(message) {
+            const [command, note, velocity] = message.data;
+            if (command === 144 && velocity > 0) {
+                console.log(`Nota MIDI enviada: ${note}`);
+                ws.send(JSON.stringify({ type: 'flash', note: note }));
+            }
+        }
+    </script>
+</body>
+</html>
