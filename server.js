@@ -9,12 +9,21 @@ const wss = new WebSocketServer({ server });
 app.use(express.static('public'));
 
 wss.on('connection', (ws) => {
+    console.log('¡Nuevo dispositivo conectado!');
+
     ws.on('message', (message) => {
+        console.log('Mensaje MIDI recibido, reenviando a todos...');
+        
+        // Reenviar la señal a TODOS los conectados sin filtros
         wss.clients.forEach((client) => {
-            if (client !== ws && client.readyState === ws.OPEN) {
+            if (client.readyState === ws.OPEN) {
                 client.send(message);
             }
         });
+    });
+
+    ws.on('close', () => {
+        console.log('Un dispositivo se ha desconectado.');
     });
 });
 
