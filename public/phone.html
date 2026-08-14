@@ -136,15 +136,24 @@
             playAssignedNote();
         });
 
-        // 2. Recepción directa de la señal en texto plano
-        ws.onmessage = (event) => {
+        // 2. Recepción universal compatible con Blobs y textos de red
+        ws.onmessage = async (event) => {
             try {
-                const incomingNote = event.data.trim();
+                let incomingNote = null;
+
+                // Manejo seguro por si event.data llega como Blob o texto plano
+                if (event.data instanceof Blob) {
+                    incomingNote = await event.data.text();
+                } else {
+                    incomingNote = String(event.data);
+                }
+
+                incomingNote = incomingNote.trim();
 
                 debug.innerText = `Último MIDI recibido: ${incomingNote}`;
 
                 if (audioInitialized && incomingNote !== "") {
-                    // Compara si la nota que llegó coincide exactamente con la nota asignada a este teléfono
+                    // Compara la nota recibida con la nota asignada a este teléfono
                     if (Number(incomingNote) === Number(assignedMidiNote)) {
                         playAssignedNote();
                     } else {
