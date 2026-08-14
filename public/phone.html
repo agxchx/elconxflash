@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Orquesta Dm11 - Teléfono</title>
+    <title>Orquesta Dm11 - Delay</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
     <style>
         body {
@@ -45,13 +45,13 @@
         }
         #info {
             margin-top: 20px;
-            font-size: 28px;
+            font-size: 24px;
             color: #38bdf8;
             font-weight: bold;
         }
         #debug {
             margin-top: 10px;
-            font-size: 18px;
+            font-size: 16px;
             color: #fbbf24;
         }
         #log {
@@ -64,11 +64,11 @@
 <body>
 
     <div>
-        <h2>Orquesta Web Dm11</h2>
+        <h2>Orquesta Web Dm11 + Delay</h2>
         <button id="start" class="btn-main">1. TOCA AQUÍ PARA ACTIVAR</button>
-        <div id="info">Nota asignada: ?</div>
+        <div id="info">Notas asignadas: ?</div>
         <div id="debug">Último MIDI recibido: Ninguno</div>
-        <button id="test-sound" class="btn-test">🎵 Tocar mi nota de prueba</button>
+        <button id="test-sound" class="btn-test">🎵 Tocar mi trío de prueba</button>
         <p id="log">Esperando activación de audio...</p>
     </div>
 
@@ -80,11 +80,17 @@
         const debug = document.getElementById('debug');
         const testBtn = document.getElementById('test-sound');
 
-        // Notas del acorde Dm11 acotadas estrictamente entre A1 (33) y D4 (62)
-        // Incluye notas reales del acorde Dm11 (D, F, A, C, G) en ese rango:
-        // A1(33), C2(36), D2(38), F2(41), G2(43), A2(45), C3(48), D3(50), F3(53), G3(55), A3(57), C4(60), D4(62)
-        const dm11NotesA1ToD4 = [33, 36, 38, 41, 43, 45, 48, 50, 53, 55, 57, 60, 62];
-        const assignedMidiNote = dm11NotesA1ToD4[Math.floor(Math.random() * dm11NotesA1ToD4.length)];
+        // Banco de tríos armónicos de Dm11 entre A1 (33) y D4 (62)
+        const dm11Trios = [
+            [33, 41, 48], // A1, F2, C3
+            [36, 45, 53], // C2, A2, F3
+            [38, 48, 55], // D2, C3, G3
+            [41, 50, 57], // F2, D3, A3
+            [45, 53, 60], // A2, F3, C4
+            [50, 57, 62]  // D3, A3, D4
+        ];
+
+        const assignedTrioMidi = dm11Trios[Math.floor(Math.random() * dm11Trios.length)];
 
         function midiToNoteName(midiNumber) {
             const notes = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
@@ -92,49 +98,66 @@
             return notes[midiNumber % 12] + octave;
         }
 
-        const assignedNoteString = midiToNoteName(assignedMidiNote);
-        info.innerText = `Tu Nota: ${assignedNoteString} (MIDI: ${assignedMidiNote})`;
+        const assignedTrioNames = assignedTrioMidi.map(midiToNoteName);
+        info.innerText = `Notas: ${assignedTrioNames.join(' - ')}`;
 
         let synth;
+        let delayEffect;
         let audioInitialized = false;
 
-        function playAssignedNote() {
+        function playAssignedTrio() {
             if (audioInitialized && synth) {
-                synth.triggerAttackRelease(assignedNoteString, "4n");
-                log.innerText = `¡Sonó tu nota (${assignedNoteString})!`;
+                assignedTrioNames.forEach((noteName, index) => {
+                    setTimeout(() => {
+                        synth.triggerAttackRelease(noteName, "8n");
+                    }, index * 90);
+                });
+
+                log.innerText = `¡Sonó el trío con Delay (${assignedTrioNames.join(', ')})!`;
                 setTimeout(() => {
-                    log.innerText = "Conectado. Esperando tu tecla MIDI...";
-                }, 400);
+                    log.innerText = "Conectado. Esperando tus notas MIDI...";
+                }, 500);
             }
         }
 
         document.getElementById('start').addEventListener('click', async () => {
             await Tone.start();
             
+            // 1. Configuramos el Delay con las características de tu imagen:
+            // "8t" = 1/8 triplet (tresillo de corchea)
+            // Feedback = 0.57 (57%)
+            // Wet = 1.0 (100%), Dry = 0.0 (0%)
+            delayEffect = new Tone.FeedbackDelay({
+                delayTime: "8t",
+                feedback: 0.57,
+                wet: 1.0
+            }).toDestination();
+
+            // 2. Creamos el sintetizador y lo conectamos directamente al Delay
             synth = new Tone.FMSynth({
                 harmonicity: 1.5,
                 modulationIndex: 1.2,
                 oscillator: { type: "triangle" },
-                envelope: { attack: 0.01, decay: 0.5, sustain: 0, release: 0.5 },
+                envelope: { attack: 0.01, decay: 0.4, sustain: 0, release: 0.3 },
                 modulation: { type: "square" },
-                modulationEnvelope: { attack: 0.01, decay: 0.3, sustain: 0, release: 0.3 }
-            }).toDestination();
+                modulationEnvelope: { attack: 0.01, decay: 0.2, sustain: 0, release: 0.2 }
+            }).connect(delayEffect);
 
             audioInitialized = true;
             
             const btn = document.getElementById('start');
             btn.style.backgroundColor = "#22c55e";
-            btn.innerText = "¡AUDIO ACTIVO!";
+            btn.innerText = "¡AUDIO Y DELAY ACTIVOS!";
             btn.disabled = true;
             
             testBtn.style.display = "inline-block";
-            log.innerText = "Audio desbloqueado. ¡Listo para tu teclado MIDI!";
+            log.innerText = "Audio desbloqueado. ¡Listo!";
             
-            playAssignedNote();
+            playAssignedTrio();
         });
 
         testBtn.addEventListener('click', () => {
-            playAssignedNote();
+            playAssignedTrio();
         });
 
         ws.onmessage = async (event) => {
@@ -148,14 +171,13 @@
                 }
 
                 incomingNote = incomingNote.trim();
-
                 debug.innerText = `Último MIDI recibido: ${incomingNote}`;
 
                 if (audioInitialized && incomingNote !== "") {
-                    if (Number(incomingNote) === Number(assignedMidiNote)) {
-                        playAssignedNote();
+                    if (assignedTrioMidi.includes(Number(incomingNote))) {
+                        playAssignedTrio();
                     } else {
-                        log.innerText = `MIDI ${incomingNote} (No es tu nota)`;
+                        log.innerText = `MIDI ${incomingNote} (Fuera de tu trío)`;
                     }
                 }
             } catch (err) {
