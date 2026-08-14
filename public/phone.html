@@ -3,7 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Receptor de Vibración MIDI</title>
+    <title>Orquesta Dm11 - Teléfono</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
     <style>
         body {
             margin: 0;
@@ -13,62 +14,97 @@
             flex-direction: column;
             justify-content: center;
             align-items: center;
-            background-color: #111;
-            color: white;
-            font-family: sans-serif;
+            background-color: #0f172a;
+            color: #f8fafc;
+            font-family: system-ui, -apple-system, sans-serif;
             text-align: center;
         }
         button {
-            padding: 15px 30px;
-            font-size: 18px;
-            background-color: #00ffcc;
-            color: #000;
+            padding: 20px 40px;
+            font-size: 20px;
+            background-color: #10b981;
+            color: #ffffff;
             border: none;
-            border-radius: 8px;
+            border-radius: 16px;
             cursor: pointer;
+            font-weight: bold;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.3);
+            transition: transform 0.1s ease;
+        }
+        button:active {
+            transform: scale(0.95);
+        }
+        #info {
+            margin-top: 25px;
+            font-size: 24px;
+            color: #38bdf8;
             font-weight: bold;
         }
         #log {
-            margin-top: 20px;
+            margin-top: 10px;
             font-size: 16px;
-            color: #aaa;
+            color: #94a3b8;
         }
     </style>
 </head>
 <body>
 
     <div>
-        <h2>Receptor Háptico MIDI</h2>
-        <button id="start">Activar Receptor</button>
-        <p id="log">Esperando interacción inicial...</p>
+        <h2>Orquesta Web Dm11</h2>
+        <button id="start">Unirse a la Orquesta</button>
+        <div id="info">Nota asignada: ?</div>
+        <p id="log">Toca el botón para activar tu dispositivo...</p>
     </div>
 
     <script>
         const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
         const ws = new WebSocket(`${protocol}//${window.location.host}`);
         const log = document.getElementById('log');
+        const info = document.getElementById('info');
 
-        // Los navegadores móviles exigen una interacción táctil previa para habilitar funciones de hardware
-        document.getElementById('start').addEventListener('click', () => {
-            if ("vibrate" in navigator) {
-                // Vibración de prueba para confirmar permisos
-                navigator.vibrate(100);
-                log.innerText = "¡Listo! Escuchando señales MIDI...";
-                document.getElementById('start').style.display = 'none';
-            } else {
-                log.innerText = "Tu navegador no soporta vibración.";
+        // Notas MIDI seleccionadas específicamente para Dm11 (Re, Fa, La, Do, Sol en varias octavas)
+        // Dm7(11) = D - F - A - C - G
+        const dm11Notes = [50, 53, 57, 60, 67, 62, 65, 69, 72, 79]; // D3 hasta G5
+
+        // Seleccionamos una nota al azar para ESTE teléfono al abrir la página
+        const randomMidiNote = dm11Notes[Math.floor(Math.random() * dm11Notes.length)];
+
+        function midiToNoteName(midiNumber) {
+            const notes = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
+            const octave = Math.floor(midiNumber / 12) - 1;
+            return notes[midiNumber % 12] + octave;
+        }
+
+        const assignedNoteString = midiToNoteName(randomMidiNote);
+        info.innerText = `Nota asignada: ${assignedNoteString}`;
+
+        // Sintetizador estilo marimba/pluck cálido
+        const synth = new Tone.Synth({
+            oscillator: { type: "sine" },
+            envelope: {
+                attack: 0.005,
+                decay: 0.4,
+                sustain: 0.0,
+                release: 0.3
             }
+        }).toDestination();
+
+        // Activación de audio por interacción táctil requerida por iOS/Android
+        document.getElementById('start').addEventListener('click', async () => {
+            await Tone.start();
+            log.innerText = "¡Conectado a la orquesta! Esperando señal...";
+            document.getElementById('start').style.display = 'none';
         });
 
         ws.onmessage = (event) => {
             const data = JSON.parse(event.data);
-            if (data.type === 'flash') { // Mantenemos el tipo 'flash' para que coincida con el emisor
-                log.innerText = `¡Pulso recibido (Nota: ${data.note})!`;
-                
-                // Dispara una vibración de 150 milisegundos
-                if ("vibrate" in navigator) {
-                    navigator.vibrate(150);
-                }
+            if (data.type === 'flash') {
+                // Cuando llega la señal de la PC, este teléfono toca SU nota asignada al instante
+                synth.triggerAttackRelease(assignedNoteString, "4n");
+                log.innerText = `¡Sonando ${assignedNoteString}!`;
+                setTimeout(() => {
+                    log.innerText = "Listo para el siguiente golpe";
+                }, 300);
             }
         };
     </script>
