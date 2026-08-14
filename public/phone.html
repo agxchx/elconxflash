@@ -19,20 +19,33 @@
             font-family: system-ui, -apple-system, sans-serif;
             text-align: center;
         }
-        button {
-            padding: 20px 40px;
+        .btn-main {
+            padding: 20px 35px;
             font-size: 20px;
-            background-color: #10b981;
+            background-color: #ef4444;
             color: #ffffff;
             border: none;
             border-radius: 16px;
             cursor: pointer;
             font-weight: bold;
-            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.3);
+            box-shadow: 0 10px 20px rgba(0,0,0,0.4);
+            margin-bottom: 15px;
+        }
+        .btn-test {
+            padding: 12px 25px;
+            font-size: 16px;
+            background-color: #3b82f6;
+            color: #ffffff;
+            border: none;
+            border-radius: 12px;
+            cursor: pointer;
+            font-weight: bold;
+            display: none; /* Se oculta hasta que actives el audio */
+            margin-top: 15px;
         }
         #info {
-            margin-top: 25px;
-            font-size: 28px;
+            margin-top: 20px;
+            font-size: 30px;
             color: #38bdf8;
             font-weight: bold;
         }
@@ -47,9 +60,16 @@
 
     <div>
         <h2>Orquesta Web Dm11</h2>
-        <button id="start">Unirse a la Orquesta</button>
+        
+        <!-- Botón principal para destrabar el audio del navegador -->
+        <button id="start" class="btn-main">1. TOCA AQUÍ PARA ACTIVAR</button>
+        
         <div id="info">Nota: ?</div>
-        <p id="log">Toca el botón para activar el audio...</p>
+        
+        <!-- Nuevo botón de prueba manual de sonido -->
+        <button id="test-sound" class="btn-test">🎵 Tocar mi nota de prueba</button>
+        
+        <p id="log">Esperando activación de audio...</p>
     </div>
 
     <script>
@@ -57,8 +77,9 @@
         const ws = new WebSocket(`${protocol}//${window.location.host}`);
         const log = document.getElementById('log');
         const info = document.getElementById('info');
+        const testBtn = document.getElementById('test-sound');
 
-        // Notas del acorde Dm11 (D, F, A, C, G)
+        // Notas de Dm11 (D, F, A, C, G)
         const dm11Notes = [50, 53, 57, 60, 67, 62, 65, 69, 72, 79];
         const randomMidiNote = dm11Notes[Math.floor(Math.random() * dm11Notes.length)];
 
@@ -71,30 +92,64 @@
         const assignedNoteString = midiToNoteName(randomMidiNote);
         info.innerText = `Tu Nota: ${assignedNoteString}`;
 
-        const synth = new Tone.Synth({
-            oscillator: { type: "sine" },
-            envelope: { attack: 0.005, decay: 0.4, sustain: 0, release: 0.3 }
-        }).toDestination();
+        let synth;
+        let audioInitialized = false;
 
+        function playAssignedNote() {
+            if (audioInitialized && synth) {
+                synth.triggerAttackRelease(assignedNoteString, "4n");
+                log.innerText = `¡Sonando nota ${assignedNoteString}!`;
+                setTimeout(() => {
+                    log.innerText = "Conectado. ¡Listo para recibir MIDI!";
+                }, 400);
+            }
+        }
+
+        // 1. Activar motor de audio
         document.getElementById('start').addEventListener('click', async () => {
             await Tone.start();
-            log.innerText = "¡Audio activado! Esperando notas...";
-            document.getElementById('start').style.display = 'none';
+            
+            synth = new Tone.FMSynth({
+                harmonicity: 1.5,
+                modulationIndex: 1.2,
+                oscillator: { type: "triangle" },
+                envelope: { attack: 0.01, decay: 0.5, sustain: 0, release: 0.5 },
+                modulation: { type: "square" },
+                modulationEnvelope: { attack: 0.01, decay: 0.3, sustain: 0, release: 0.3 }
+            }).toDestination();
+
+            audioInitialized = true;
+            
+            // Cambiar estilos de interfaz
+            const btn = document.getElementById('start');
+            btn.style.backgroundColor = "#22c55e";
+            btn.innerText = "¡AUDIO ACTIVO!";
+            btn.disabled = true;
+            
+            testBtn.style.display = "inline-block"; // Mostrar el botón de prueba
+            log.innerText = "Audio desbloqueado. ¡Prueba el botón azul o tu MIDI!";
+            
+            playAssignedNote(); // Suena un toque inicial de confirmación
         });
 
+        // 2. Botón de prueba manual en pantalla
+        testBtn.addEventListener('click', () => {
+            playAssignedNote();
+        });
+
+        // 3. Recepción de señal MIDI remota desde el servidor
         ws.onmessage = (event) => {
             try {
                 const data = JSON.parse(event.data);
-                // Si llega cualquier mensaje válido del controlador
                 if (data.note) {
-                    synth.triggerAttackRelease(assignedNoteString, "4n");
-                    log.innerText = `¡Tocando ${assignedNoteString}! (MIDI ${data.note})`;
-                    setTimeout(() => {
-                        log.innerText = "Esperando notas...";
-                    }, 300);
+                    if (audioInitialized) {
+                        playAssignedNote();
+                    } else {
+                        log.innerText = "⚠️ ¡Llegó señal MIDI, pero debes tocar el botón rojo primero!";
+                    }
                 }
             } catch (e) {
-                console.error("Error leyendo mensaje:", e);
+                console.error("Error:", e);
             }
         };
     </script>
