@@ -2,157 +2,70 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Panel de Control Orquesta MIDI</title>
+    <title>Controlador MIDI Orquesta</title>
     <style>
-        body {
-            font-family: system-ui, -apple-system, sans-serif;
-            background-color: #0f172a;
-            color: #f8fafc;
-            max-width: 600px;
-            margin: 40px auto;
-            padding: 20px;
-            text-align: center;
-        }
-        .card {
-            background: #1e293b;
-            padding: 20px;
-            border-radius: 12px;
-            margin-bottom: 20px;
-            box-shadow: 0 4px 6px -1px rgba(0,0,0,0.3);
-            text-align: left;
-        }
-        h2 { margin-top: 0; color: #38bdf8; }
-        .status-indicator {
-            display: inline-block;
-            width: 12px;
-            height: 12px;
-            border-radius: 50%;
-            background-color: #ef4444;
-            margin-right: 8px;
-        }
-        .status-indicator.connected {
-            background-color: #22c55e;
-        }
-        pre {
-            background: #0f172a;
-            padding: 10px;
-            border-radius: 6px;
-            overflow-x: auto;
-            font-size: 14px;
-            color: #38bdf8;
-        }
-        #flash-indicator {
-            width: 100%;
-            height: 50px;
-            background-color: #334155;
-            border-radius: 8px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-weight: bold;
-            font-size: 18px;
-            transition: background-color 0.05s ease;
-        }
+        body { font-family: sans-serif; background: #0f172a; color: #fff; padding: 30px; text-align: center; }
+        .box { background: #1e293b; padding: 20px; border-radius: 12px; margin: 20px auto; max-width: 400px; }
+        #status { font-weight: bold; color: #ef4444; }
+        #status.ok { color: #22c55e; }
     </style>
 </head>
 <body>
-
     <h2>Controlador Maestro Orquesta</h2>
-
-    <div class="card">
-        <h3>Estado de Red (Servidor)</h3>
-        <p><span id="ws-status-dot" class="status-indicator"></span><span id="ws-status-text">Desconectado del servidor</span></p>
-    </div>
-
-    <div class="card">
-        <h3>Dispositivos MIDI Detectados</h3>
-        <pre id="midi-devices">Buscando controladores MIDI...</pre>
-    </div>
-
-    <div class="card">
-        <h3>Monitor de Señal de Salida</h3>
-        <div id="flash-indicator">Esperando toque de tecla...</div>
-        <p id="last-msg" style="color: #94a3b8; font-size: 14px; margin-top: 10px;">Última nota enviada: Ninguna</p>
+    <div class="box">
+        <p>Estado del Servidor: <span id="status">Desconectado</span></p>
+        <p id="midi-info">Buscando controlador MIDI...</p>
+        <hr style="border: 0; border-top: 1px solid #334155; margin: 15px 0;">
+        <h3 id="monitor" style="color: #38bdf8;">Esperando nota...</h3>
     </div>
 
     <script>
         const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
         const ws = new WebSocket(`${protocol}//${window.location.host}`);
-        
-        const wsDot = document.getElementById('ws-status-dot');
-        const wsText = document.getElementById('ws-status-text');
-        const midiDevicesPre = document.getElementById('midi-devices');
-        const flashIndicator = document.getElementById('flash-indicator');
-        const lastMsg = document.getElementById('last-msg');
+        const statusEl = document.getElementById('status');
+        const midiInfo = document.getElementById('midi-info');
+        const monitor = document.getElementById('monitor');
 
-        // Control de WebSocket
         ws.onopen = () => {
-            wsDot.classList.add('connected');
-            wsText.innerText = "Conectado al servidor en la nube";
+            statusEl.innerText = "Conectado";
+            statusEl.classList.add('ok');
         };
 
         ws.onclose = () => {
-            wsDot.classList.remove('connected');
-            wsText.innerText = "Desconectado del servidor";
+            statusEl.innerText = "Desconectado";
+            statusEl.classList.remove('ok');
         };
 
-        // Control de Web MIDI API
         if (navigator.requestMIDIAccess) {
             navigator.requestMIDIAccess().then(onMIDISuccess, onMIDIFailure);
         } else {
-            midiDevicesPre.innerText = "Tu navegador no soporta Web MIDI. Usa Google Chrome o Edge en la PC.";
+            midiInfo.innerText = "Web MIDI no soportado en este navegador.";
         }
 
         function onMIDISuccess(midiAccess) {
-            updateDeviceList(midiAccess);
-            
-            // Escuchar si se conectan o desconectan dispositivos en caliente
-            midiAccess.onstatechange = (e) => {
-                updateDeviceList(midiAccess);
-            };
-
+            let count = 0;
             for (let input of midiAccess.inputs.values()) {
                 input.onmidimessage = getMIDIMessage;
+                count++;
             }
+            midiInfo.innerText = count > 0 ? `¡Controlador conectado (${count})!` : "⚠️ No hay dispositivos MIDI conectados.";
         }
 
         function onMIDIFailure() {
-            midiDevicesPre.innerText = "No se pudo acceder a los puertos MIDI.";
-        }
-
-        function updateDeviceList(midiAccess) {
-            let devices = [];
-            for (let input of midiAccess.inputs.values()) {
-                devices.push(`✅ Entrada: ${input.name} (Fabricante: ${input.manufacturer || 'Desconocido'})`);
-            }
-            if (devices.length === 0) {
-                midiDevicesPre.innerText = "⚠️ No hay ningún controlador MIDI conectado por USB/Bluetooth.";
-            } else {
-                midiDevicesPre.innerText = devices.join('\n');
-            }
+            midiInfo.innerText = "Error al conectar con Web MIDI.";
         }
 
         function getMIDIMessage(message) {
             const [command, note, velocity] = message.data;
             
-            // Nota activada (Note On, comando típico 144 a 159 según canal) con velocidad > 0
+            // Detectar Note On (comandos entre 144 y 159) con velocidad mayor a 0
             if ((command & 0xf0) === 144 && velocity > 0) {
-                console.log(`MIDI Recibido -> Nota: ${note}, Velocidad: ${velocity}`);
+                console.log("Enviando Nota MIDI:", note);
+                monitor.innerText = `¡Nota Enviada: ${note}!`;
                 
-                // 1. Mostrar en pantalla de la PC que la señal llegó del controlador
-                flashIndicator.style.backgroundColor = "#22c55e";
-                flashIndicator.innerText = `¡SEÑAL ENVIADA! (Nota MIDI: ${note})`;
-                lastMsg.innerText = `Última nota enviada: ${note} | Canal: ${command & 0x0f} | Vel: ${velocity}`;
-
-                setTimeout(() => {
-                    flashIndicator.style.backgroundColor = "#334155";
-                    flashIndicator.innerText = "Esperando toque de tecla...";
-                }, 150);
-
-                // 2. Enviar por WebSocket a los teléfonos conectados
+                // Enviar al servidor
                 if (ws.readyState === WebSocket.OPEN) {
-                    ws.send(JSON.stringify({ type: 'flash', note: note }));
+                    ws.send(JSON.stringify({ type: 'play', note: note }));
                 }
             }
         }
