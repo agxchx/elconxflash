@@ -3,50 +3,71 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Receptor Flash</title>
+    <title>Receptor de Vibración MIDI</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            background-color: #111;
+            color: white;
+            font-family: sans-serif;
+            text-align: center;
+        }
+        button {
+            padding: 15px 30px;
+            font-size: 18px;
+            background-color: #00ffcc;
+            color: #000;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+        #log {
+            margin-top: 20px;
+            font-size: 16px;
+            color: #aaa;
+        }
+    </style>
 </head>
 <body>
-    <h2>Receptor de Flash</h2>
-    <button id="start" style="padding: 15px; font-size: 16px;">1. Activar Permisos de Cámara</button>
-    <p id="log" style="margin-top: 20px; font-size: 18px;">Esperando señal...</p>
+
+    <div>
+        <h2>Receptor Háptico MIDI</h2>
+        <button id="start">Activar Receptor</button>
+        <p id="log">Esperando interacción inicial...</p>
+    </div>
 
     <script>
-        let track = null;
         const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
         const ws = new WebSocket(`${protocol}//${window.location.host}`);
+        const log = document.getElementById('log');
 
-        document.getElementById('start').addEventListener('click', async () => {
-            try {
-                const stream = await navigator.mediaDevices.getUserMedia({
-                    video: { facingMode: 'environment' }
-                });
-                track = stream.getVideoTracks()[0];
-                
-                const capabilities = track.getCapabilities();
-                if (!capabilities.torch) {
-                    alert('El flash no es compatible con este dispositivo.');
-                    return;
-                }
-                document.getElementById('log').innerText = "¡Listo! Escuchando señales MIDI...";
+        // Los navegadores móviles exigen una interacción táctil previa para habilitar funciones de hardware
+        document.getElementById('start').addEventListener('click', () => {
+            if ("vibrate" in navigator) {
+                // Vibración de prueba para confirmar permisos
+                navigator.vibrate(100);
+                log.innerText = "¡Listo! Escuchando señales MIDI...";
                 document.getElementById('start').style.display = 'none';
-            } catch (err) {
-                console.error(err);
-                document.getElementById('log').innerText = "Error de permisos: " + err;
+            } else {
+                log.innerText = "Tu navegador no soporta vibración.";
             }
         });
 
-        ws.onmessage = async (event) => {
+        ws.onmessage = (event) => {
             const data = JSON.parse(event.data);
-            if (data.type === 'flash' && track) {
-                try {
-                    await track.applyConstraints({ advanced: [{ torch: true }] });
-                    document.getElementById('log').innerText = `¡Flash encendido (Nota: ${data.note})!`;
-                    
-                    setTimeout(async () => {
-                        await track.applyConstraints({ advanced: [{ torch: false }] });
-                    }, 150); // El flash dura encendido 150 milisegundos
-                } catch (err) {
-                    console.error("Error al disparar el flash:", err);
+            if (data.type === 'flash') { // Mantenemos el tipo 'flash' para que coincida con el emisor
+                log.innerText = `¡Pulso recibido (Nota: ${data.note})!`;
+                
+                // Dispara una vibración de 150 milisegundos
+                if ("vibrate" in navigator) {
+                    navigator.vibrate(150);
                 }
             }
         };
