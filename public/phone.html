@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Orquesta Dm11 - Teléfono</title>
-    <!-- Cargamos Tone.js -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
     <style>
         body {
@@ -41,7 +40,7 @@
             border-radius: 12px;
             cursor: pointer;
             font-weight: bold;
-            display: none; /* Se oculta hasta que actives el audio */
+            display: none;
             margin-top: 15px;
         }
         #info {
@@ -61,15 +60,9 @@
 
     <div>
         <h2>Orquesta Web Dm11</h2>
-        
-        <!-- Botón principal para destrabar el audio del navegador -->
         <button id="start" class="btn-main">1. TOCA AQUÍ PARA ACTIVAR</button>
-        
         <div id="info">Nota: ?</div>
-        
-        <!-- Botón de prueba manual de sonido -->
         <button id="test-sound" class="btn-test">🎵 Tocar mi nota de prueba</button>
-        
         <p id="log">Esperando activación de audio...</p>
     </div>
 
@@ -121,38 +114,29 @@
 
             audioInitialized = true;
             
-            // Cambiar estilos de interfaz
             const btn = document.getElementById('start');
             btn.style.backgroundColor = "#22c55e";
             btn.innerText = "¡AUDIO ACTIVO!";
             btn.disabled = true;
             
-            testBtn.style.display = "inline-block"; // Mostrar el botón de prueba azul
-            log.innerText = "Audio desbloqueado. ¡Prueba el botón azul o tu controlador MIDI!";
+            testBtn.style.display = "inline-block";
+            log.innerText = "Audio desbloqueado. ¡Prueba tu controlador MIDI!";
             
-            playAssignedNote(); // Toque inicial de confirmación
+            playAssignedNote();
         });
 
-        // 2. Botón de prueba manual en pantalla
         testBtn.addEventListener('click', () => {
             playAssignedNote();
         });
 
-        // 3. Recepción de señal MIDI remota desde el servidor
+        // 2. Recepción de señal segura sin errores de JSON Parse
         ws.onmessage = (event) => {
-            try {
-                const data = JSON.parse(event.data);
-                console.log("Mensaje recibido:", data);
-                
-                if (data.note || data.type === 'play' || data.type === 'flash') {
-                    if (audioInitialized) {
-                        playAssignedNote();
-                    } else {
-                        log.innerText = "⚠️ ¡Llegó señal MIDI, pero debes tocar el botón rojo primero!";
-                    }
-                }
-            } catch (e) {
-                console.error("Error al procesar mensaje:", e);
+            console.log("Señal del servidor recibida:", event.data);
+            
+            if (audioInitialized) {
+                playAssignedNote();
+            } else {
+                log.innerText = "⚠️ ¡Llegó señal, pero debes tocar el botón rojo primero!";
             }
         };
     </script>
